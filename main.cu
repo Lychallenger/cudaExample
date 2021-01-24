@@ -1,9 +1,62 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cooperative_groups.h>
+#include <thrust/sort.h>
 using namespace cooperative_groups;
 
+ struct pairs{
+    char4 *data;
+    unsigned int length;
 
+    __device__ __host__
+    int cmp4(const char4 & c1, const char4 & c2)const
+    {
+        int result;
+
+        result = c1.x - c2.x; if (result !=0) return result;
+        result = c1.y - c2.y; if (result !=0) return result;
+        result = c1.z - c2.z; if (result !=0) return result;
+        result = c1.w - c2.w; if (result !=0) return result;
+
+        return 0;
+    }
+
+    __device__ __host__
+    int strncmp4(const char4 * s1, const char4 * s2, const unsigned int nwords)const
+    {
+        for(unsigned int i=0; i<nwords; i++) {
+            int result = cmp4(s1[i], s2[i]);
+            if (result != 0) return result;
+        }
+
+        return 0;
+    }
+    __device__ __host__  bool operator==(const pairs b)const {
+        unsigned int len=min(this->length,b.length);
+        return (strncmp4(this->data,b.data,len)==0);
+    }
+
+     __device__ __host__  bool operator!=(const pairs b)const {
+         unsigned int len=min(this->length,b.length);
+         return (strncmp4(this->data,b.data,len)!=0);
+     }
+     __device__ __host__  bool operator<(const pairs b)const {
+         unsigned int len=min(this->length,b.length);
+         return (strncmp4(this->data,b.data,len)<0);
+     }
+     __device__ __host__  bool operator<=(const pairs b)const{
+         unsigned int len=min(this->length,b.length);
+         return (strncmp4(this->data,b.data,len)<=0);
+     }
+     __device__ __host__  bool operator>(const pairs b)const{
+         unsigned int len=min(this->length,b.length);
+         return (strncmp4(this->data,b.data,len)>0);
+     }
+     __device__ __host__  bool operator>=(const pairs b)const{
+         unsigned int len=min(this->length,b.length);
+         return (strncmp4(this->data,b.data,len)>=0);
+     }
+};
 
 
 __device__ int reduce(thread_group&g,int*x,int val){
@@ -70,7 +123,38 @@ __global__ void parallel_search(int*key,int*bloom,int*table){
             printf("{%d,%d}",key[thid/8],result);
     }
 }
-int main() {
+
+int main(){
+    int test_len=3;
+    pairs*h_p,*d_p;
+    h_p=(pairs*)malloc(test_len*sizeof(pairs));
+    //data 0
+    h_p[0].length=4;
+    h_p[0].data=(char4*)malloc(sizeof(char4));
+    h_p[0].data[0].x='z';
+    h_p[0].data[1].y='b';
+    h_p[0].data[2].z='c';
+    h_p[0].data[3].w='d';
+    //data 1
+    h_p[1].length=4;
+    h_p[1].data=(char4*)malloc(sizeof(char4));
+    h_p[1].data[0].x='e';
+    h_p[1].data[1].y='b';
+    h_p[1].data[2].z='c';
+    h_p[1].data[3].w='d';
+    //data 2
+    h_p[2].length=4;
+    h_p[2].data=(char4*)malloc(sizeof(char4));
+    h_p[2].data[0].x='a';
+    h_p[2].data[1].y='b';
+    h_p[2].data[2].z='c';
+    h_p[2].data[3].w='d';
+    thrust::sort(thrust::host,h_p,h_p+3);
+
+    printf("%c\n",h_p[0].data[0].x);
+    return 0;
+}
+int mains() {
     //test cooperative code
 //    int *h_x,*d_x;
 //    h_x=(int*)malloc(1024*sizeof(int));
