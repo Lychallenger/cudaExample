@@ -4,9 +4,9 @@
 #include <thrust/sort.h>
 using namespace cooperative_groups;
 
- struct pairs{
+ struct     pairs{
     char4 *data;
-    unsigned int length;
+    unsigned int*length;
 
     __device__ __host__
     int cmp4(const char4 & c1, const char4 & c2)const
@@ -32,28 +32,28 @@ using namespace cooperative_groups;
         return 0;
     }
     __device__ __host__  bool operator==(const pairs b)const {
-        unsigned int len=min(this->length,b.length);
+        unsigned int len=min(*(this->length),*(b.length));
         return (strncmp4(this->data,b.data,len)==0);
     }
 
      __device__ __host__  bool operator!=(const pairs b)const {
-         unsigned int len=min(this->length,b.length);
+         unsigned int len=min(*(this->length),*(b.length));
          return (strncmp4(this->data,b.data,len)!=0);
      }
      __device__ __host__  bool operator<(const pairs b)const {
-         unsigned int len=min(this->length,b.length);
+         unsigned int len=min(*(this->length),*(b.length));
          return (strncmp4(this->data,b.data,len)<0);
      }
      __device__ __host__  bool operator<=(const pairs b)const{
-         unsigned int len=min(this->length,b.length);
+         unsigned int len=min(*(this->length),*(b.length));
          return (strncmp4(this->data,b.data,len)<=0);
      }
      __device__ __host__  bool operator>(const pairs b)const{
-         unsigned int len=min(this->length,b.length);
+         unsigned int len=min(*(this->length),*(b.length));
          return (strncmp4(this->data,b.data,len)>0);
      }
      __device__ __host__  bool operator>=(const pairs b)const{
-         unsigned int len=min(this->length,b.length);
+         unsigned int len=min(*(this->length),*(b.length));
          return (strncmp4(this->data,b.data,len)>=0);
      }
 };
@@ -124,33 +124,55 @@ __global__ void parallel_search(int*key,int*bloom,int*table){
     }
 }
 
+__global__  void showDeviceSort(pairs*p){
+    printf("data=%c\n",p[0].data[0].x);
+}
 int main(){
     int test_len=3;
-    pairs*h_p,*d_p;
+    pairs*h_p,*d_p,*tmp_p;//中间变量 临时指针用于分配空间
     h_p=(pairs*)malloc(test_len*sizeof(pairs));
+    tmp_p=(pairs*)malloc(test_len*sizeof (pairs));
     //data 0
-    h_p[0].length=4;
+    h_p[0].length=(unsigned int*)malloc(sizeof(unsigned int));
     h_p[0].data=(char4*)malloc(sizeof(char4));
+    h_p[0].length[0]=4;
     h_p[0].data[0].x='z';
     h_p[0].data[1].y='b';
     h_p[0].data[2].z='c';
     h_p[0].data[3].w='d';
+    cudaMalloc(&(tmp_p[0].length),sizeof (unsigned int));
+    cudaMalloc(&(tmp_p[0].data),sizeof(char4));
+    cudaMemcpy(tmp_p[0].length,h_p[0].length,sizeof(unsigned int),cudaMemcpyHostToDevice);
+    cudaMemcpy(tmp_p[0].data,h_p[0].data,sizeof(char4),cudaMemcpyHostToDevice);
     //data 1
-    h_p[1].length=4;
+    h_p[1].length=(unsigned int*)malloc(sizeof(unsigned int));
     h_p[1].data=(char4*)malloc(sizeof(char4));
+    h_p[1].length[0]=4;
     h_p[1].data[0].x='e';
     h_p[1].data[1].y='b';
     h_p[1].data[2].z='c';
     h_p[1].data[3].w='d';
+    cudaMalloc(&(tmp_p[1].length),sizeof (unsigned int));
+    cudaMalloc(&(tmp_p[1].data),sizeof(char4));
+    cudaMemcpy(tmp_p[1].length,h_p[1].length,sizeof(unsigned int),cudaMemcpyHostToDevice);
+    cudaMemcpy(tmp_p[1].data,h_p[1].data,sizeof(char4),cudaMemcpyHostToDevice);
     //data 2
-    h_p[2].length=4;
+    h_p[2].length=(unsigned int*)malloc(sizeof(unsigned int));
     h_p[2].data=(char4*)malloc(sizeof(char4));
+    h_p[2].length[0]=4;
     h_p[2].data[0].x='a';
     h_p[2].data[1].y='b';
     h_p[2].data[2].z='c';
     h_p[2].data[3].w='d';
-    thrust::sort(thrust::host,h_p,h_p+3);
-
+    cudaMalloc(&(tmp_p[2].length),sizeof (unsigned int));
+    cudaMalloc(&(tmp_p[2].data),sizeof(char4));
+    cudaMemcpy(tmp_p[2].length,h_p[2].length,sizeof(unsigned int),cudaMemcpyHostToDevice);
+    cudaMemcpy(tmp_p[2].data,h_p[2].data,sizeof(char4),cudaMemcpyHostToDevice);
+    cudaMalloc(&d_p,test_len*sizeof(pairs));
+    cudaMemcpy(d_p,tmp_p,test_len*sizeof(pairs),cudaMemcpyHostToDevice);
+    thrust::sort(thrust::device,d_p,d_p+3);
+    showDeviceSort<<<1,1>>>(d_p);
+    cudaDeviceSynchronize();
     printf("%c\n",h_p[0].data[0].x);
     return 0;
 }
